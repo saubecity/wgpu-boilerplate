@@ -99,15 +99,28 @@ impl ApplicationHandler<events::UserEvent> for App {
         window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
-        let window = match &mut self.window {
-            Some(window) => window,
-            None => return,
+        let Some(window) = &mut self.window else {
+            return;
+        };
+
+        let Some(state) = &mut self.state else {
+            return;
         };
 
         match event {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
             }
+
+            WindowEvent::Resized(size) => {
+                state.resize(size.width, size.height);
+                window.request_redraw();
+            }
+
+            WindowEvent::WindowEvent::RedrawRequested => match state.render(window) {
+                Err(err) => log::error!("Render Failed: {}", err),
+                _ => {}
+            },
 
             WindowEvent::KeyboardInput {
                 device_id,

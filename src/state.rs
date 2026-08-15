@@ -1,6 +1,12 @@
 use anyhow::Context;
+use wgpu::wgt::TextureViewDescriptor;
+
+use std::any;
 use std::sync::Arc;
-use wgpu::Backends;
+use wgpu::{
+    Backends, CommandEncoderDescriptor, CurrentSurfaceTexture, RenderPassColorAttachment,
+    SurfaceTexture,
+};
 use wgpu::{
     CompositeAlphaMode, Device, InstanceDescriptor, Limits, Surface, SurfaceCapabilities,
     SurfaceColorSpace, SurfaceConfiguration, TextureFormat, TextureUsages,
@@ -8,6 +14,8 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 use wgpu::DeviceType;
+
+use crate::appinfo;
 
 #[derive(Debug, Clone)]
 pub struct GraphicsPreferences {
@@ -40,7 +48,7 @@ impl GraphicsState {
         let pref = GraphicsPreferences::default();
 
         let instance_desc = InstanceDescriptor {
-            backends: Backends::all(),
+            backends: Backends::VULKAN,
             flags: Default::default(),
             memory_budget_thresholds: Default::default(),
             backend_options: Default::default(),
@@ -94,10 +102,104 @@ impl GraphicsState {
         })
     }
 
-    pub fn render(&mut self, window: &Window) {
+    pub fn render(&mut self, window: &Window) -> anyhow::Result<()> {
         if !self.is_surface_configured {
-            return;
+            return Err(anyhow::anyhow!(
+                "Surface is not configured, this is mostly normal"
+            ));
         }
+
+        let output = Self::get_surface_texture(&self.surface, &self.device, &self.config)
+            .ok_or_else(|| anyhow::anyhow!("Failed to get surface texture"))?;
+
+        let view = output
+            .texture
+            .create_view(&TextureViewDescriptor::default());
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("msdftext - Command Encoder"),
+            });
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("msdftext - render pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &view,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                    resolve_target: None,
+                })],
+                ..Default::default()
+            });
+        }
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+        self.queue.present(output);
+
+        Ok(())
+    }
+
+    fn get_surface_texture(
+        surface: &Surface,
+        device: &Device,
+        config: &SurfaceConfiguration,
+    ) -> Option<SurfaceTexture> {
+        match surface.get_current_texture() {
+            CurrentSurfaceTexture::Success(surface_texture) => Some(surface_texture),
+            CurrentSurfaceTexture::Suboptimal(surface_texture) => {
+                log::debug!("Suboptimal texture, reconfiguring surface");
+
+                Self::configure_surface_impl(surface, config, device);
+                return Some(surface_texture);
+            }
+            CurrentSurfaceTexture::Outdated => {
+                Self::configure_surface_impl(surface, config, device);
+                return None;
+            }
+            CurrentSurfaceTexture::Lost => {
+                Self::configure_surface_impl(surface, config, device);
+                return None;
+            }
+            _ => None,
+        }
+    }
+
+    //to be removed
+    fn surface_texture_result_to_message(status: CurrentSurfaceTexture) -> String {
+        match status {
+            CurrentSurfaceTexture::Success(surface_texture) => {
+                String::from("Successfully acquired a surface texture with no issues")
+            }
+            CurrentSurfaceTexture::Suboptimal(surface_texture) => String::from(
+                "Successfully acquired a surface texture, but texture no longer matches the properties of the underlying surface",
+            ),
+            CurrentSurfaceTexture::Timeout => {
+                String::from("A timeout was encountered while trying to acquire the next frame")
+            }
+            CurrentSurfaceTexture::Occluded => {
+                String::from("The window is occluded (e.g. minimized or behind another window)")
+            }
+            CurrentSurfaceTexture::Outdated => String::from(
+                "The underlying surface has changed, and therefore the surface configuration is outdated",
+            ),
+            CurrentSurfaceTexture::Lost => {
+                String::from("The surface has been lost and needs to be recreated")
+            }
+            CurrentSurfaceTexture::Validation => String::from(
+                "A validation error inside Surface::get_current_texture was raised and caught by an error scope or on_uncaptured_error",
+            ),
+        }
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.config.width = width;
+        self.config.height = height;
+        self.configure_surface();
     }
 
     fn configure_surface_impl(

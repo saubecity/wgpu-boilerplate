@@ -17,6 +17,12 @@ use wgpu::DeviceType;
 
 use crate::appinfo;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RenderAction {
+    Idle,
+    Continue,
+}
+
 #[derive(Debug, Clone)]
 pub struct GraphicsPreferences {
     hdr: bool,
@@ -48,7 +54,7 @@ impl GraphicsState {
         let pref = GraphicsPreferences::default();
 
         let instance_desc = InstanceDescriptor {
-            backends: Backends::VULKAN,
+            backends: Backends::all(),
             flags: Default::default(),
             memory_budget_thresholds: Default::default(),
             backend_options: Default::default(),
@@ -102,7 +108,7 @@ impl GraphicsState {
         })
     }
 
-    pub fn render(&mut self, window: &Window) -> anyhow::Result<()> {
+    pub fn render(&mut self, window: &Window) -> anyhow::Result<RenderAction> {
         if !self.is_surface_configured {
             return Err(anyhow::anyhow!(
                 "Surface is not configured, this is mostly normal"
@@ -141,7 +147,7 @@ impl GraphicsState {
         self.queue.submit(std::iter::once(encoder.finish()));
         self.queue.present(output);
 
-        Ok(())
+        Ok(RenderAction::Idle)
     }
 
     fn get_surface_texture(
@@ -161,6 +167,7 @@ impl GraphicsState {
                 Self::configure_surface_impl(surface, config, device);
                 return None;
             }
+            // seperated later for android stuff
             CurrentSurfaceTexture::Lost => {
                 Self::configure_surface_impl(surface, config, device);
                 return None;

@@ -2,8 +2,10 @@
   "lsp": {
     "rust-analyzer": {
       "initialization_options": {
-        "cargo": {},
-      },
-    },
-  },
+        "cargo": {
+          "target": "wasm32-unknown-unknown"
+        }
+      }
+    }
+  }
 }

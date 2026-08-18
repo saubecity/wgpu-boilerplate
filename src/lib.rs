@@ -6,6 +6,7 @@ mod state;
 use std::sync::Arc;
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::UnwrapThrowExt;
+use wgpu::rwh::HasWindowHandle;
 use winit::{
     dpi::LogicalSize,
     event::{ElementState, WindowEvent},
@@ -13,7 +14,6 @@ use winit::{
     window::Fullscreen,
 };
 
-#[cfg(target_family = "wasm")]
 use winit::event_loop::EventLoop;
 
 use state::GraphicsState;
@@ -22,19 +22,16 @@ use winit::{application::ApplicationHandler, event_loop, window::Window};
 pub struct App {
     window: Option<Arc<Window>>,
     state: Option<GraphicsState>,
-    #[cfg(target_family = "wasm")]
     proxy: Option<winit::event_loop::EventLoopProxy<events::UserEvent>>,
 }
 
 impl App {
-    pub fn new(#[cfg(target_family = "wasm")] event_loop: &EventLoop<events::UserEvent>) -> Self {
-        #[cfg(target_family = "wasm")]
+    pub fn new(event_loop: &EventLoop<events::UserEvent>) -> Self {
         let proxy = Some(event_loop.create_proxy());
 
         Self {
             state: None,
             window: None,
-            #[cfg(target_family = "wasm")]
             proxy,
         }
     }
@@ -80,6 +77,25 @@ impl ApplicationHandler<events::UserEvent> for App {
                 }
             }
         }
+
+        #[cfg(target_family = "wasm")]
+        {
+            let window_clone = window.clone();
+            if let Some(proxy) = self.proxy.take() {
+                wasm_bindgen_futures::spawn_local(async move {
+                    match proxy.send_event(events::UserEvent::WasmGraphicsInitialized(
+                        GraphicsState::new(&window_clone).await.unwrap(),
+                    )) {
+                        Ok(_) => return,
+                        Err(_) => {
+                            log::error!("Oups, something bad happend");
+                            return;
+                        }
+                    };
+                });
+            }
+        }
+
         self.window = Some(window);
     }
 
@@ -89,6 +105,13 @@ impl ApplicationHandler<events::UserEvent> for App {
 
     fn user_event(&mut self, event_loop: &event_loop::ActiveEventLoop, event: events::UserEvent) {
         match event {
+            #[cfg(target_family = "wasm")]
+            events::UserEvent::WasmGraphicsInitialized(state) => {
+                self.state = Some(state);
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
             _ => {}
         }
     }
@@ -114,10 +137,10 @@ impl ApplicationHandler<events::UserEvent> for App {
 
             WindowEvent::Resized(size) => {
                 state.resize(size.width, size.height);
-                window.request_redraw();
+                //window.request_redraw();
             }
 
-            WindowEvent::WindowEvent::RedrawRequested => match state.render(window) {
+            WindowEvent::RedrawRequested => match state.render(window) {
                 Err(err) => log::error!("Render Failed: {}", err),
                 _ => {}
             },

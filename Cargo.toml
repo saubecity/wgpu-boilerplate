@@ -5,6 +5,9 @@ edition = "2024"
 
 [profile.release]
 lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
 
 [dependencies]
 rustybuzz = "0.20.1"
@@ -25,6 +28,8 @@ pollster = "0.4"
 winit = { version = "0.30", features = ["android-game-activity"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+
+wgpu = { version = "30.0.0", features = ["webgl"]}
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.4", features = ["wasm_js"] }

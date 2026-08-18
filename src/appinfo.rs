@@ -1,4 +1,4 @@
 /* only put static variables here */
 
-pub static NAME: &str = "msdftext";
-pub static VERSION: &str = "0.1";
+pub static NAME: &str = env!("CARGO_PKG_NAME");
+pub static VERSION: &str = env!("CARGO_PKG_VERSION");

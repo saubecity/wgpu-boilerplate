@@ -25,7 +25,7 @@ pub fn run() -> anyhow::Result<()> {
     log::info!("Launching {} {}", appinfo::NAME, appinfo::VERSION);
 
     let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new();
+    let mut app = App::new(&event_loop);
     event_loop.run_app(&mut app)?;
 
     Ok(())

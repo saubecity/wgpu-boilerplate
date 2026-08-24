@@ -134,7 +134,7 @@ impl GraphicsState {
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: &view,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::RED),
                         store: wgpu::StoreOp::Store,
                     },
                     depth_slice: None,

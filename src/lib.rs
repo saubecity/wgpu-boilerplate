@@ -3,21 +3,22 @@ pub mod events;
 pub mod launch;
 mod state;
 
+use state::GraphicsState;
 use std::sync::Arc;
 #[cfg(target_family = "wasm")]
+use wasm_bindgen::JsCast;
+#[cfg(target_family = "wasm")]
 use wasm_bindgen::UnwrapThrowExt;
-use wgpu::rwh::HasWindowHandle;
+use winit::event_loop::EventLoop;
+#[cfg(target_family = "wasm")]
+use winit::platform::web::WindowAttributesExtWebSys;
+use winit::{application::ApplicationHandler, event_loop, window::Window};
 use winit::{
     dpi::LogicalSize,
     event::{ElementState, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
-    window::Fullscreen,
+    window::{Fullscreen, WindowAttributes},
 };
-
-use winit::event_loop::EventLoop;
-
-use state::GraphicsState;
-use winit::{application::ApplicationHandler, event_loop, window::Window};
 
 pub struct App {
     window: Option<Arc<Window>>,
@@ -35,6 +36,29 @@ impl App {
             proxy,
         }
     }
+
+    #[cfg(not(target_family = "wasm"))]
+    /*fn get_window_attributes(default_attributes: WindowAttributes) -> WindowAttributes {
+        default_attributes
+            .clone()
+            .with_inner_size(LogicalSize::new(1280, 720))
+    }*/
+
+    fn get_window_attributes(default_attributes: WindowAttributes) -> WindowAttributes {
+        default_attributes.with_inner_size(LogicalSize::new(1280, 720))
+    }
+
+    #[cfg(target_family = "wasm")]
+    fn get_window_attributes(default_attributes: WindowAttributes) -> WindowAttributes {
+        let window = wgpu::web_sys::window().expect("Failed to get browser Window");
+        let document = window.document().unwrap_throw();
+        document.set_title(appinfo::NAME);
+        let canvas = document
+            .get_element_by_id(appinfo::CANVAS_ID)
+            .unwrap_throw();
+        let html_canvas_element = canvas.unchecked_into();
+        default_attributes.with_canvas(Some(html_canvas_element))
+    }
 }
 
 impl ApplicationHandler<events::UserEvent> for App {
@@ -43,26 +67,7 @@ impl ApplicationHandler<events::UserEvent> for App {
             return;
         };
 
-        let mut window_attributes = Window::default_attributes();
-
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
-        {
-            window_attributes = window_attributes.with_inner_size(LogicalSize::new(1280, 720));
-        }
-
-        #[cfg(target_family = "wasm")]
-        {
-            use wasm_bindgen::JsCast;
-            use winit::platform::web::WindowAttributesExtWebSys;
-            const CANVAS_ID: &str = "canvas";
-
-            let window = wgpu::web_sys::window().expect("Failed to get browser Window");
-            let document = window.document().unwrap_throw();
-            document.set_title(appinfo::NAME);
-            let canvas = document.get_element_by_id(CANVAS_ID).unwrap_throw();
-            let html_canvas_element = canvas.unchecked_into();
-            window_attributes = window_attributes.with_canvas(Some(html_canvas_element));
-        }
+        let window_attributes = Self::get_window_attributes(Window::default_attributes());
 
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         window.set_title("msdftext");
@@ -88,7 +93,7 @@ impl ApplicationHandler<events::UserEvent> for App {
                     )) {
                         Ok(_) => return,
                         Err(_) => {
-                            log::error!("Oups, something bad happend");
+                            log::error!("Wopsie Oupsie, something bad happend");
                             return;
                         }
                     };

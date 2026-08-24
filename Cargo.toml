@@ -11,7 +11,7 @@ panic = "abort"
 
 [dependencies]
 rustybuzz = "0.20.1"
-wgpu = "30.0.0"
+wgpu = "30.0.1"
 winit = "0.30"
 anyhow = "1.0"
 log = "0.4"
@@ -22,20 +22,20 @@ bytemuck = "1.25.2"
 # desktop
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11"
-pollster = "0.4"
+pollster = "1.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
 winit = { version = "0.30", features = ["android-game-activity"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 
-wgpu = { version = "30.0.0", features = ["webgl"]}
+wgpu = { version = "30.0.1", features = ["webgl"]}
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.4", features = ["wasm_js"] }
 console_error_panic_hook = "0.1.7"
-console_log = "1.0.0"
-web-sys = { version = "0.3.95", features = [
+console_log = "1.1.0"
+web-sys = { version = "0.3", features = [
     "Window",
     "Document",
     "HtmlElement",

@@ -94,7 +94,7 @@ impl GraphicsState {
         let surface_caps = surface.get_capabilities(&adapter);
         let size = window.inner_size();
         let config = Self::create_surface_config(pref.hdr, &surface_caps, &size);
-        let mut is_surface_configured = Self::configure_surface_impl(&surface, &config, &device);
+        let is_surface_configured = Self::configure_surface_impl(&surface, &config, &device);
 
         Ok(Self {
             surface,
